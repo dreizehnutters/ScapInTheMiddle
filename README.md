@@ -1,3 +1,3 @@
 # ScapInTheMiddle
 
-python mitm.py <interface> <gateway> <target>
+python mitm.py [interface] [gateway] [target]
