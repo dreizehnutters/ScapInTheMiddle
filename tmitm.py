@@ -38,6 +38,8 @@ def get_mac_(ip_address):
         return r[Ether].src
     
     return None
+
+    
 def poison_target(gateway_ip,gateway_mac,target_ip,target_mac):
 
     poison_target = ARP()
@@ -82,8 +84,7 @@ else:
     print "[*] Target %s is at %s" % (target_ip,target_mac)
 
     # start poison thread
-    poison_thread = threading.Thread(target = poison_target, args =
-    (gateway_ip, gateway_mac,target_ip,target_mac))
+    poison_thread = threading.Thread(target = poison_target, args = (gateway_ip, gateway_mac,target_ip,target_mac))
     poison_thread.start()
     try:
         print "[*] Starting sniffer for %d packets" % packet_count
